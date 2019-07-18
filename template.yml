@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  DatabaseName:
+    Default: db_name
+    Type: String
+
+  MasterUsername:
+    Default: db_admin
+    Type: String
+
+Resources:
+  ConfigSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{ "username": "${MasterUsername}" }'
+        GenerateStringKey: "password"
+        PasswordLength: 40
+        ExcludeCharacters: '"@/\'
+
+  Database:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername: !Sub '{{resolve:secretsmanager:${ConfigSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${ConfigSecret}:SecretString:password}}'
+      DatabaseName: !Ref DatabaseName
+      Engine: aurora
+      EngineMode: serverless
+
+Outputs:
+  SecretArn:
+    Value: !Ref ConfigSecret
+
+  DatabaseArn:
+    Value: !Sub arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${Database}
+
+  DatabaseName:
+    Value: !Ref DatabaseName
